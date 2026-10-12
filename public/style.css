@@ -59,6 +59,10 @@ header h1 { font-size: 20px; }
 .btn { border: none; border-radius: 10px; padding: 11px 18px; font-size: 14px; cursor: pointer; font-weight: 600; background: #e9ebf1; color: var(--ink); }
 .btn.primary { background: var(--accent); color: #fff; }
 .btn.danger { background: var(--danger); color: #fff; width: 100%; }
+.btn.mic { font-size: 17px; padding: 10px 13px; background: #e9ebf1; }
+.btn.mic.listening { background: var(--danger); color: #fff; animation: pulse 1.2s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+.voice-note { font-size: 11.5px; color: var(--muted); padding: 4px 16px 0; }
 
 /* 报告页 */
 #report h2 { margin-bottom: 16px; }

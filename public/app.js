@@ -1,7 +1,11 @@
 /* pitch-mate 前端：零依赖 vanilla JS。状态机：home → practice → report */
+import { createLatencyTracker } from './voice-metrics.js';
+
 const $ = (id) => document.getElementById(id);
 const views = { home: $('home'), practice: $('practice'), report: $('report') };
 let current = null; // {practiceId, persona}
+const voiceTracker = createLatencyTracker();
+let voiceMode = false;
 
 async function api(path, body) {
   const res = await fetch(path, body ? {
@@ -71,23 +75,80 @@ async function sendTurn() {
   const text = input.value.trim();
   if (!text || !current) return;
   input.value = '';
+  await deliverTurn(text);
+}
+
+async function deliverTurn(text) {
   addMsg('user', text);
   const btn = $('sendBtn');
   btn.disabled = true;
+  const t0 = performance.now();
+  let fillerTimer = null;
+  if (voiceMode) {
+    // 延迟掩蔽：300ms 内回复没回来，先应一声"嗯"，掩盖网络+生成延迟
+    fillerTimer = setTimeout(() => speak('嗯——'), 300);
+  }
   try {
     const data = await api(`/api/practice/${current.practiceId}/turn`, { text });
+    if (fillerTimer) clearTimeout(fillerTimer);
+    if (voiceMode && !data.ended) {
+      voiceTracker.record(performance.now() - t0);
+    }
     if (data.ended) {
       addMsg('system', '—— 练习结束 ——');
       endPractice();
     } else {
       addMsg('persona', data.reply);
+      if (voiceMode) speak(data.reply);
     }
   } catch (e) {
+    if (fillerTimer) clearTimeout(fillerTimer);
     addMsg('system', `出错了：${e.message}`);
   } finally {
     btn.disabled = false;
-    input.focus();
+    $('input').focus();
   }
+}
+
+/* ---- 语音模式（Chrome Web Speech API，零密钥）---- */
+let recognition = null;
+
+function toggleVoiceMode() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('当前浏览器不支持语音识别，请用 Chrome。'); return; }
+  voiceMode = !voiceMode;
+  $('micBtn').classList.toggle('listening', voiceMode);
+  if (voiceMode) {
+    recognition = new SR();
+    recognition.lang = 'zh-CN';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (e) => {
+      const text = e.results[0][0].transcript.trim();
+      if (text && current) deliverTurn(text);
+    };
+    recognition.onend = () => { if (voiceMode && current) recognition.start(); }; // 持续听
+    recognition.onerror = (e) => {
+      if (e.error === 'not-allowed') { voiceMode = false; $('micBtn').classList.remove('listening'); }
+    };
+    recognition.start();
+    addMsg('system', '🎤 语音模式已开启（Chrome 语音识别 + 合成）');
+  } else if (recognition) {
+    recognition.onend = null;
+    recognition.stop();
+    recognition = null;
+    speechSynthesis.cancel();
+    addMsg('system', '语音模式已关闭');
+  }
+}
+
+function speak(text) {
+  if (!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text.replace(/（[^）]*）/g, '')); // 括号动作不读
+  u.lang = 'zh-CN';
+  u.rate = 1.1;
+  speechSynthesis.speak(u);
 }
 
 /* ---- 报告 ---- */
@@ -116,6 +177,7 @@ async function endPractice() {
         <div class="value">${softTotal.total ?? '硬指标 ' + Math.round((report.hard.questionRate + report.hard.painHitRate + report.anchorCoverage) / 3)}</div>
         <div class="label" style="margin-top:6px">复习等级 ${grade}/5 · ${srs.intervalDays} 天后建议再练</div>
       </div>
+      ${voiceStatsHtml()}
     </div>
     <div class="transcript-card">
       <h3>逐句复盘（${persona} 场）</h3>
@@ -131,7 +193,20 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+function voiceStatsHtml() {
+  const s = voiceTracker.stats();
+  if (s.n === 0) return '';
+  const verdict = { ok: '✓ 达标', over: '⚠️ 超预算', insufficient: '样本不足' }[voiceTracker.verdict()];
+  return `
+    <div class="metric">
+      <div class="label">语音应答延迟（${s.n} 次采样）</div>
+      <div class="value">${Math.round(s.p50)}ms</div>
+      <div class="label" style="margin-top:6px">p95 ${Math.round(s.p95)}ms · 预算 p50≤1500/p95≤2500 · ${verdict}</div>
+    </div>`;
+}
+
 $('sendBtn').onclick = sendTurn;
+$('micBtn').onclick = toggleVoiceMode;
 $('input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendTurn(); });
 $('endBtn').onclick = () => { addMsg('system', '—— 你结束了这场练习 ——'); endPractice(); };
 $('backBtn').onclick = () => { show('home'); loadHome(); };
