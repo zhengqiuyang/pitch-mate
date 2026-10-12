@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pitch-mate · 销售陪练舱</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>🎯 pitch-mate 陪练舱</h1>
+  <span id="modelBadge" class="badge">…</span>
+</header>
+
+<main id="home" class="view">
+  <p class="hint">选一个难缠客户开练 —— 问对问题，TA 才会说真话。</p>
+  <div id="scenarioGrid" class="grid"></div>
+</main>
+
+<main id="practice" class="view hidden">
+  <aside class="persona-card">
+    <div id="pName" class="p-name"></div>
+    <div id="pRole" class="p-role"></div>
+    <div id="pBrief" class="p-brief"></div>
+    <div id="pDiff" class="p-diff"></div>
+    <button id="endBtn" class="btn danger">结束并查看复盘</button>
+  </aside>
+  <section class="chat-wrap">
+    <div id="chat" class="chat"></div>
+    <div class="composer">
+      <input id="input" type="text" placeholder="对客户说点什么…（回车发送）" autocomplete="off">
+      <button id="sendBtn" class="btn primary">发送</button>
+    </div>
+  </section>
+</main>
+
+<main id="report" class="view hidden">
+  <h2 id="reportTitle">复盘报告</h2>
+  <div id="reportBody"></div>
+  <button id="backBtn" class="btn">← 再来一场</button>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>

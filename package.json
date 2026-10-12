@@ -1,0 +1,16 @@
+{
+  "name": "pitch-mate",
+  "version": "0.1.0",
+  "description": "销售谈判 AI 陪练：AI 扮演难缠客户（隐藏信息+剧本锚点），逐轮追问、五维评分、复盘到句。基于 roleplay-core。",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node server.js",
+    "demo": "node src/demo.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
